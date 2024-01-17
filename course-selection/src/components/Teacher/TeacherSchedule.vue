@@ -1,19 +1,43 @@
 <template>
   <div>
-    <div class="container">
-      <div class="input-group">
-        <label for="semester">选择学期：</label>
-        <select v-model="selectedSemester" id="semester">
-          <option value="202301">202301</option>
-          <option value="202302">202302</option>
-          <option value="202303">202303</option>
-          <option value="202304">202304</option>
-        </select>
-      </div>
-      <button class="btn" @click="fetchData">查询</button>
-    </div>
+    <div class="flex items-center justify-center mt-10">
+      <span class="text-lg font-medium leading-6 text-gray-900">选择学期</span>
+      <Listbox as="div" v-model="selectedSemester">
+        <div class="relative mx-2">
+          <ListboxButton class="relative w-full cursor-default rounded-md bg-white py-1.5 pl-3 pr-10 text-left text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:text-sm sm:leading-6">
+            <span class="flex items-center">
+              <span class="ml-3 block truncate">{{ selectedSemester }}</span>
+            </span>
+            <span class="pointer-events-none absolute inset-y-0 right-0 ml-3 flex items-center pr-2">
+              <ChevronUpDownIcon class="h-5 w-5 text-gray-400" aria-hidden="true" />
+            </span>
+          </ListboxButton>
 
-    <el-table :data="times" style="width: 100%">
+          <transition leave-active-class="transition ease-in duration-100" leave-from-class="opacity-100" leave-to-class="opacity-0">
+            <ListboxOptions class="absolute z-10 mt-1 max-h-56 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm">
+              <ListboxOption v-for="semester in ['202301', '202302', '202303', '202304']" :key="semester" :value="semester" v-slot="{ active, selected }">
+                <li :class="[active ? 'bg-indigo-600 text-white' : 'text-gray-900', 'relative cursor-default select-none py-2 pl-3 pr-9']">
+                  <div class="flex items-center">
+                    <span :class="[selected ? 'font-semibold' : 'font-normal', 'ml-3 block truncate']">{{ semester }}</span>
+                  </div>
+
+                  <span v-if="selected" :class="[active ? 'text-white' : 'text-indigo-600', 'absolute inset-y-0 right-0 flex items-center pr-4']">
+                    <CheckIcon class="h-5 w-5" aria-hidden="true" />
+                  </span>
+                </li>
+              </ListboxOption>
+            </ListboxOptions>
+          </transition>
+        </div>
+      </Listbox>
+      <button 
+        class="mt-0 px-6 py-2 bg-blue-500 text-white rounded" 
+        @click="fetchData(selectedSemester)"
+      >
+        查询
+      </button>
+    </div>
+    <el-table :data="times" style="width: 100%; margin-top: 30px;">
       <el-table-column prop="index" label="序号"></el-table-column>
       <el-table-column prop="time" label="上课时间"></el-table-column>
       <el-table-column prop="Mon" label="一"></el-table-column>
@@ -28,10 +52,22 @@
 <script>
 import { ref,onMounted } from 'vue';
 import { useRoute } from 'vue-router';
+import { Listbox, ListboxButton, ListboxLabel, ListboxOption, ListboxOptions } from '@headlessui/vue'
+import { CheckIcon, ChevronUpDownIcon } from '@heroicons/vue/20/solid'
+import { ElMessageBox } from 'element-plus';
 
 export default {
-
+  components:{
+    Listbox,
+    ListboxButton,
+    ListboxLabel,
+    ListboxOption,
+    ListboxOptions,
+    CheckIcon,
+    ChevronUpDownIcon
+  },
   setup() {
+
     const selectedSemester = ref('202301');
     const times = ref([
       { index: 1, time: '8:00-8:45' },
@@ -71,38 +107,47 @@ export default {
           username: username,
           semester: semester
         })
-      });
+      }      
+      );
       console.log('fetchData end');
-
-      const data = await response.json();
-      console.log(data.courseinfo_data[0].course_name)
-      if (response.ok) {
-        let courseinfo_data = data.courseinfo_data;
-      for (let i = 0; i < courseinfo_data.length; i++) {
-        console.log(i);
-        let course_name = courseinfo_data[i].course_name;
-        let DoW = courseinfo_data[i].DayofWeek;
-        let class_begin = courseinfo_data[i].class_begin;
-        let class_len_1 = courseinfo_data[i].class_len_1;
-        let class_place = courseinfo_data[i].class_place;
-        let class_info = course_name + '\n'
-                       + class_place + '\n';
-/*        console.log(DoW);
-        console.log(class_info);
-        console.log(class_begin);
-        console.log(class_len_1);
-*/
-        for (let j = class_begin; j <= class_begin + class_len_1; j++) {
-          if (!times.value[j]) {
-            times.value[j] = {};
-          }  
-          times.value[j][DoW] = class_info;
-          console.log(times.value[j][DoW]);
-        }
+      if (response.status === 500) {
+          ElMessageBox.alert('该学期没有课程！', '警告', {
+          confirmButtonText: '确定',
+          type: 'warning'
+          })
       }
+      if (response.ok) {      
+        const data = await response.json();
+        console.log(data.courseinfo_data[0].course_name)
+        let courseinfo_data = data.courseinfo_data;
+        for (let i = 0; i < courseinfo_data.length; i++) {
+          console.log(i);
+          let course_name = courseinfo_data[i].course_name;
+          let DoW = courseinfo_data[i].DayofWeek;
+          let class_begin = courseinfo_data[i].class_begin;
+          let class_len_1 = courseinfo_data[i].class_len_1;
+          let class_place = courseinfo_data[i].class_place;
+          let class_info = course_name + '\n'
+                        + class_place + '\n';
+/*        console.log(DoW);
+          console.log(class_info);
+          console.log(class_begin);
+          console.log(class_len_1);
+*/
+          for (let j = class_begin; j <= class_begin + class_len_1; j++) {
+            if (!times.value[j]) {
+              times.value[j] = {};
+            }  
+            times.value[j][DoW] = class_info;
+            console.log(times.value[j][DoW]);
+          }
+        }
       } else {
         console.error(data.error);
-        alert('获取课表失败');
+        ElMessageBox.alert('找不到符合条件的学生！', '警告', {
+          confirmButtonText: '确定',
+          type: 'warning'
+        })
       }
     };
 
